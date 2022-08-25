@@ -1,13 +1,10 @@
 """Class definitions for aligning with pretrained acoustic models"""
 from __future__ import annotations
 
-from contextlib import redirect_stdout, redirect_stderr
 import csv
 import functools
-import io
 import multiprocessing as mp
 import os
-
 import time
 from typing import TYPE_CHECKING, Dict, List, Optional
 
@@ -64,13 +61,8 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
     ):
         self.acoustic_model = AcousticModel(acoustic_model_path)
         kw = self.acoustic_model.parameters
-        if not 'quiet' in kwargs:
-            self.logger.info( f"KW {kw}" )
-        else:
-            kw
+        print("KW", kw)
         kw.update(kwargs)
-        if not 'quiet' in kwargs:
-            self.logger.info( f"KW {kw}" )
         super().__init__(**kw)
 
     @property
@@ -100,19 +92,18 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
                 )
             self.acoustic_model.validate(self)
             self.acoustic_model.export_model(self.working_directory)
-            #import logging
+            import logging
 
-            #logger = logging.getLogger(self.identifier)
-            
-            self.acoustic_model.log_details(self.logger)
+            logger = logging.getLogger(self.identifier)
+            self.acoustic_model.log_details(logger)
 
         except Exception as e:
             if isinstance(e, KaldiProcessingError):
-                #import logging
+                import logging
 
-                #logger = logging.getLogger(self.identifier)
-                log_kaldi_errors(e.error_logs, self.logger)
-                e.update_log_file(self.logger)
+                logger = logging.getLogger(self.identifier)
+                log_kaldi_errors(e.error_logs, logger)
+                e.update_log_file(logger)
             raise
         self.initialized = True
         self.log_debug(f"Setup for alignment in {time.time() - begin} seconds")
@@ -364,10 +355,8 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
             session.bulk_update_mappings(Utterance, update_mappings)
             session.query(Corpus).update({"alignment_evaluation_done": True})
             session.commit()
-        if(score_count !=0 ):
-            self.log_info(f"Average overlap score: {score_sum/score_count}")
-        if(phone_length_sum !=0 ):
-            self.log_info(f"Average phone error rate: {phone_edit_sum/phone_length_sum}")
+        self.log_info(f"Average overlap score: {score_sum/score_count}")
+        self.log_info(f"Average phone error rate: {phone_edit_sum/phone_length_sum}")
 
     def align_one_utterance(self, utterance: Utterance, session: Session):
         dictionary = utterance.speaker.dictionary
@@ -425,14 +414,8 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
         )
         func = OnlineAlignmentFunction(args)
         word_intervals, phone_intervals, log_likelihood = func.run()
-        f = io.StringIO()
-        #with redirect_stdout(f):
-        if not 'quiet' in self.acoustic_model.parameters:
-            self.logger.info(log_likelihood)
-            self.logger.info(word_intervals, phone_intervals)
-        else:
-            log_likelihood
-            word_intervals, phone_intervals
+        print(log_likelihood)
+        print(word_intervals, phone_intervals)
         session.query(PhoneInterval).filter(PhoneInterval.utterance_id == utterance.id).delete()
         session.query(WordInterval).filter(WordInterval.utterance_id == utterance.id).delete()
         session.flush()
@@ -445,14 +428,7 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
 
     def align(self) -> None:
         """Run the aligner"""
-        self.logger.debug("  about to setup")
-        start = time.time()
         self.setup()
-        end = time.time()
-        elapsed = int((end-start)*1000)
-        self.logger.debug( f"  setup took {elapsed} milliseconds" )
-        self.time = {}
-        self.time['setup'] = round(end-start,7)
         done_path = os.path.join(self.working_directory, "done")
         dirty_path = os.path.join(self.working_directory, "dirty")
         if os.path.exists(done_path):
@@ -461,22 +437,12 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
         try:
             log_dir = os.path.join(self.working_directory, "log")
             os.makedirs(log_dir, exist_ok=True)
-            start = time.time()
             self.compile_train_graphs()
-            end = time.time()
-            elapsed = int((end-start)*1000)
-            self.logger.debug( f"  compile_train_graphs took {elapsed} milliseconds" )
-            self.time['compile_train_graphs'] = round(end-start,7)
 
             self.log_info("Performing first-pass alignment...")
             self.speaker_independent = True
-            start = time.time()
             self.align_utterances()
-            end = time.time()
-            elapsed = int((end-start)*1000)
-            self.logger.debug( f"  first pass align_utterances took {elapsed} milliseconds" )
-            self.time['first pass align_utterances'] = round(end-start,7)
-            #self.compile_information()
+            self.compile_information()
             if self.uses_speaker_adaptation:
                 if self.alignment_model_path.endswith(".mdl"):
                     if os.path.exists(self.alignment_model_path.replace(".mdl", ".alimdl")):
@@ -487,24 +453,19 @@ class PretrainedAligner(CorpusAligner, TopLevelMfaWorker):
 
                 self.speaker_independent = False
                 assert self.alignment_model_path.endswith(".mdl")
-                self.logger.debug("Performing second-pass alignment...")
-                start = time.time()
+                self.log_info("Performing second-pass alignment...")
                 self.align_utterances()
-                end = time.time()
-                elapsed = int((end-start)*1000)
-                self.logger.debug( f"  second pass align_utterances took {elapsed} milliseconds" )
-                self.time['second pass align_utterances'] = round(end-start,7)
 
-                #self.compile_information()
+                self.compile_information()
         except Exception as e:
             with open(dirty_path, "w"):
                 pass
             if isinstance(e, KaldiProcessingError):
-                #import logging
+                import logging
 
-                #logger = logging.getLogger(self.identifier)
-                log_kaldi_errors(e.error_logs, self.logger)
-                e.update_log_file(self.logger)
+                logger = logging.getLogger(self.identifier)
+                log_kaldi_errors(e.error_logs, logger)
+                e.update_log_file(logger)
             raise
         with open(done_path, "w"):
             pass

@@ -194,7 +194,6 @@ class MfaWorker(metaclass=abc.ABCMeta):
         debug: bool = False,
         verbose: bool = False,
         quiet: bool = False,
-        logger: Any = logging.getLogger('dummy'),
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -203,7 +202,6 @@ class MfaWorker(metaclass=abc.ABCMeta):
         self.use_mp = use_mp
         self.dirty = False
         self.quiet = quiet
-        self.logger = logger
 
     def log_debug(self, message: str = "") -> None:
         """
