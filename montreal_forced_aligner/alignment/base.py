@@ -839,6 +839,8 @@ class CorpusAligner(AcousticCorpusPronunciationMixin, AlignMixin, FileExporterMi
                 session.bulk_update_mappings(Utterance, update_mappings)
                 session.query(Corpus).update({"alignment_evaluation_done": True})
                 session.commit()
-        self.log_info(f"Average overlap score: {score_sum/score_count}")
-        self.log_info(f"Average phone error rate: {phone_edit_sum/phone_length_sum}")
+        if(score_count !=0 ):
+            self.log_info(f"Average overlap score: {score_sum/score_count}")
+        if(phone_length_sum !=0 ):
+            self.log_info(f"Average phone error rate: {phone_edit_sum/phone_length_sum}")
         self.log_debug(f"Alignment evaluation took {time.time()-begin} seconds")

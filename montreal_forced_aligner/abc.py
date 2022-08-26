@@ -113,6 +113,7 @@ class TemporaryDirectoryMixin(metaclass=abc.ABCMeta):
     def __init__(
         self,
         temporary_directory: str = None,
+        logger: Any = logging.getLogger('dummy'),
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -124,6 +125,7 @@ class TemporaryDirectoryMixin(metaclass=abc.ABCMeta):
         self._corpus_output_directory = None
         self._dictionary_output_directory = None
         self._language_model_output_directory = None
+        self.logger = logger
 
     @property
     @abc.abstractmethod
